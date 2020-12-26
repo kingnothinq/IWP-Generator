@@ -1,0 +1,6 @@
+et-xmlfile==1.0.1
+geographiclib==1.50
+geopy==2.0.0
+jdcal==1.4.1
+openpyxl==3.0.5
+tinydb==4.3.0

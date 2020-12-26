@@ -3,6 +3,7 @@ import tkinter.filedialog as fd
 from tkinter import font as tkfont
 from pathlib import Path
 import webbrowser
+import configparser
 
 
 class Application(tk.Tk):
@@ -19,7 +20,7 @@ class Application(tk.Tk):
         container = tk.Frame(self)
 
         self.frames = {}
-        for page in (StartPage, PageOne, HelpPage, AboutPage):
+        for page in (StartPage, PageOne, SettingsPage, HelpPage, AboutPage):
             page_name = page.__name__
             frame = page(parent=container, controller=self)
             self.frames[page_name] = frame
@@ -34,8 +35,7 @@ class Application(tk.Tk):
         menu_file.add_command(label='Exit', command=quit)
 
         menu_settings = tk.Menu(menu_main, tearoff=0)
-        menu_settings.add_command(label='General')
-        menu_settings.add_command(label='Project')
+        menu_settings.add_command(label='General', command=lambda: self.show_frame('SettingsPage'))
 
         menu_help = tk.Menu(menu_main, tearoff=0)
         menu_help.add_command(label='Help', command=lambda: self.show_frame('HelpPage'))
@@ -49,7 +49,7 @@ class Application(tk.Tk):
         container.grid_rowconfigure(0, weight=1)
         container.grid_columnconfigure(0, weight=1)
 
-        self.show_frame('StartPage')
+        self.show_frame('SettingsPage')
 
     def show_frame(self, page_name):
         """Show a frame for the given page name"""
@@ -65,6 +65,7 @@ class Application(tk.Tk):
         """Show a frame for the given page name"""
         frame = self.frames[page_name]
         frame.tkraise()
+
 
 
 class StartPage(tk.Frame):
@@ -110,14 +111,45 @@ class PageOne(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
         self.controller = controller
-        print(self.controller.csv)
 
 
-        label = tk.Label(self, text="This is page 1")
-        label.pack(side="top", fill="x", pady=10)
-        button = tk.Button(self, text="Go to the start page",
-                           command=lambda: controller.show_frame('StartPage'))
-        button.pack()
+class SettingsPage(tk.Frame):
+
+    def __init__(self, parent, controller):
+        tk.Frame.__init__(self, parent)
+        self.controller = controller
+        self.font_label = tkfont.Font(family='Helvetica', size=12, weight='bold')
+        self.font_other = tkfont.Font(family='Helvetica', size=10)
+        self.var_bd = tk.StringVar()
+
+        frame_1 = tk.Frame(self, bg='red')
+        frame_2 = tk.Frame(self, bg='blue')
+
+        onevar = tk.BooleanVar(value=True)
+        twovar = tk.BooleanVar(value=False)
+        threevar = tk.BooleanVar(value=True)
+
+        one_lbl = tk.Label(frame_1, text='One')
+        two_lbl = tk.Label(frame_1, text='Two')
+        three_lbl = tk.Label(frame_1, text='Three              ')
+        one = tk.Checkbutton(frame_1, variable=onevar, onvalue=True)
+        two = tk.Checkbutton(frame_1, variable=twovar, onvalue=True)
+        three = tk.Checkbutton(frame_1, variable=threevar, onvalue=True)
+
+        four_lbl = tk.Label(frame_2, text='FOUR')
+
+        one_lbl.grid(column=0, row=0, sticky='w')
+        one.grid(column=1, row=0)
+        two_lbl.grid(column=0, row=1, sticky='w')
+        two.grid(column=1, row=1)
+        three_lbl.grid(column=0, row=2, sticky='w')
+        three.grid(column=1, row=2)
+        four_lbl.grid()
+
+        frame_1.pack(expand=True, fill='both')
+        frame_2.pack()
+
+
 
 class HelpPage(tk.Frame):
 
@@ -143,7 +175,6 @@ class HelpPage(tk.Frame):
         with open(self.readme_path, 'r') as text:
             self.readme = ''.join(text.readlines())
 
-
 class AboutPage(tk.Frame):
 
     def __init__(self, parent, controller):
@@ -162,6 +193,7 @@ class AboutPage(tk.Frame):
 
     def callback(self, url):
         webbrowser.open_new(url)
+
 
 if __name__ == '__main__':
     app = Application()

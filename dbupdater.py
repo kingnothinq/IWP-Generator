@@ -7,7 +7,11 @@ def get_slices(sheet):
     row_start = 1
     while True:
         family_cell = sheet.cell(row=row_start, column=2)
-        if family_cell.value == 'Quanta 5' or family_cell.value == 'Quanta 6':
+        if family_cell.value == 'Quanta 5':
+            row_old_start = row_start
+            row_start = row_start + 24
+            row_end = row_start - 2
+        elif family_cell.value == 'Quanta 6':
             row_old_start = row_start
             row_start = row_start + 24
             row_end = row_start - 2
@@ -15,7 +19,11 @@ def get_slices(sheet):
             row_old_start = row_start
             row_start = row_start + 15
             row_end = row_start - 2
-        elif family_cell.value == 'InfiLINK XG':
+        elif family_cell.value == 'InfiLINK XG 1000':
+            row_old_start = row_start
+            row_start = row_start + 15
+            row_end = row_start - 2
+        elif family_cell.value == 'InfiLINK XG 500':
             row_old_start = row_start
             row_start = row_start + 15
             row_end = row_start - 2
