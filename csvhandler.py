@@ -6,6 +6,7 @@ from datetime import datetime
 from geopy import point as gepoint
 from geopy import distance as gedistance
 from json import dumps
+from logging import getLogger, StreamHandler, FileHandler, Formatter
 from pathlib import Path
 from random import randint
 from re import compile
@@ -17,16 +18,17 @@ from xml.etree import ElementTree
 def read_csv(file_path):
     """Opens *.CSV file. Expects even amount of sites."""
 
+    logger.info(f'Open CSV file: {file_path}')
     with open(file_path, mode='r') as file:
         csv_reader = list(reader(file, delimiter=','))
         csv_reader = list(filter(lambda x: len(x) != 0, csv_reader))
         if len(csv_reader) % 2 != 0:
-            raise
+            raise ValueError(f'{file_path} doesn\'t contains even number of rows.')
         else:
             return csv_reader
 
 
-def create_links(sites, cfg):
+def create_links(sites):
     """Combine sites into links.
     Return a dictonary contains all links and their properties
     For example:
@@ -49,7 +51,8 @@ def create_links(sites, cfg):
         if req_freq in ['3', '4', '5', '6', '28', '70']:
             return req_freq
         else:
-            raise
+            raise ValueError(f'The requested frequency range cannot be {req_freq}. '
+                             f'Appropriate values are 3, 4, 5, 6, 28, 70.')
 
     def check_req_bw(req_bw):
         """Check what this bandwidth is supported (cannot be zero)."""
@@ -57,7 +60,8 @@ def create_links(sites, cfg):
         if int(req_bw) > 0:
             return req_bw
         else:
-            raise
+            raise ValueError(f'The requested bandwidth cannot be {req_bw}. '
+                             f'Appropriate value must be greater than zero.')
 
     def check_req_cap(req_cap):
         """Check what this capacity is supported (cannot be zero)."""
@@ -65,7 +69,8 @@ def create_links(sites, cfg):
         if int(req_cap) > 0:
             return int(req_cap)
         else:
-            raise
+            raise ValueError(f'The requested capacity  cannot be {req_cap}. '
+                             f'Appropriate value must be greater than zero.')
 
     def check_req_avb(req_avb):
         """Check what this availability range is supported."""
@@ -73,10 +78,12 @@ def create_links(sites, cfg):
         if req_avb in ['99.90', '99.99']:
             return req_avb
         else:
-            raise
+            raise ValueError(f'The requested availability cannot be {req_avb}. '
+                             f'Appropriate value is either 99.90 or 99.99 %.')
 
     def check_req_exclude(req_exclude):
         """Parse excluded options."""
+
         result = {'XG 1000': False,
                   'XG 500': False,
                   'Quanta': False,
@@ -108,58 +115,61 @@ def create_links(sites, cfg):
     # An even row is the first site, an odd row is the second site
     sites_even = sites[::2]
     sites_odd = sites[1::2]
-    for id in range(len(sites_even)):
-        name = f'From {sites_even[id][0]} to {sites_odd[id][0]}'
+    for link_id in range(len(sites_even)):
+        name = f'From {sites_even[link_id][0]} to {sites_odd[link_id][0]}'
         links[name] = deepcopy(link)
-        links[name]['Site A']['Name'] = sites_even[id][0]
-        links[name]['Site A']['Latitude'] = sites_even[id][1]
-        links[name]['Site A']['Longitude'] = sites_even[id][2]
-        links[name]['Site A']['Height'] = sites_even[id][3]
-        links[name]['Site B']['Name'] = sites_odd[id][0]
-        links[name]['Site B']['Latitude'] = sites_odd[id][1]
-        links[name]['Site B']['Longitude'] = sites_odd[id][2]
-        links[name]['Site B']['Height'] = sites_odd[id][3]
+        links[name]['Site A']['Name'] = sites_even[link_id][0]
+        links[name]['Site A']['Latitude'] = sites_even[link_id][1]
+        links[name]['Site A']['Longitude'] = sites_even[link_id][2]
+        links[name]['Site A']['Height'] = sites_even[link_id][3]
+        links[name]['Site B']['Name'] = sites_odd[link_id][0]
+        links[name]['Site B']['Latitude'] = sites_odd[link_id][1]
+        links[name]['Site B']['Longitude'] = sites_odd[link_id][2]
+        links[name]['Site B']['Height'] = sites_odd[link_id][3]
 
         """
         If there are only 4 options in CSV, other values will be got from project defaults.
         Otherwise, parse them from CSV.
         """
-        if len(sites_even[id]) == 4:
-            links[name]['Requirements']['Frequency range'] = check_req_freq(cfg.get('Project', 'req_freq'))
-            links[name]['Requirements']['Bandwidth'] = check_req_bw(cfg.get('Project', 'req_bw'))
-            links[name]['Requirements']['Capacity'] = check_req_cap(cfg.get('Project', 'req_cap'))
-            links[name]['Requirements']['Availability'] = check_req_avb(cfg.get('Project', 'req_avb'))
-            links[name]['Requirements']['Exclude'] = check_req_exclude(cfg.get('Project', 'req_exclude'))
+
+        if len(sites_even[link_id]) == 4:
+            links[name]['Requirements']['Frequency range'] = check_req_freq(config.get('Project', 'req_freq'))
+            links[name]['Requirements']['Bandwidth'] = check_req_bw(config.get('Project', 'req_bw'))
+            links[name]['Requirements']['Capacity'] = check_req_cap(config.get('Project', 'req_cap'))
+            links[name]['Requirements']['Availability'] = check_req_avb(config.get('Project', 'req_avb'))
+            links[name]['Requirements']['Exclude'] = check_req_exclude(config.get('Project', 'req_exclude'))
+        elif len(sites_even[link_id]) == 9:
+            if sites_even[link_id][4] == '':
+                links[name]['Requirements']['Frequency range'] = check_req_freq(config.get('Project', 'req_freq'))
+            else:
+                links[name]['Requirements']['Frequency range'] = check_req_freq(sites_even[link_id][4])
+
+            if sites_even[link_id][5] == '':
+                links[name]['Requirements']['Bandwidth'] = check_req_bw(config.get('Project', 'req_bw'))
+            else:
+                links[name]['Requirements']['Bandwidth'] = check_req_bw(sites_even[link_id][5])
+
+            if sites_even[link_id][6] == '':
+                links[name]['Requirements']['Capacity'] = check_req_cap(config.get('Project', 'req_cap'))
+            else:
+                links[name]['Requirements']['Capacity'] = check_req_cap(sites_even[link_id][6])
+
+            if sites_even[link_id][7] == '':
+                links[name]['Requirements']['Availability'] = check_req_avb(config.get('Project', 'req_avb'))
+            else:
+                links[name]['Requirements']['Availability'] = check_req_avb(sites_even[link_id][7])
+
+            if sites_even[link_id][8] == '':
+                links[name]['Requirements']['Exclude'] = check_req_exclude(config.get('Project', 'req_exclude'))
+            else:
+                links[name]['Requirements']['Exclude'] = check_req_exclude(sites_even[link_id][8])
         else:
-            if sites_even[id][4] == '':
-                links[name]['Requirements']['Frequency range'] = check_req_freq(cfg.get('Project', 'req_freq'))
-            else:
-                links[name]['Requirements']['Frequency range'] = check_req_freq(sites_even[id][4])
-
-            if sites_even[id][5] == '':
-                links[name]['Requirements']['Bandwidth'] = check_req_bw(cfg.get('Project', 'req_bw'))
-            else:
-                links[name]['Requirements']['Bandwidth'] = check_req_bw(sites_even[id][5])
-
-            if sites_even[id][6] == '':
-                links[name]['Requirements']['Capacity'] = check_req_cap(cfg.get('Project', 'req_cap'))
-            else:
-                links[name]['Requirements']['Capacity'] = check_req_cap(sites_even[id][6])
-
-            if sites_even[id][7] == '':
-                links[name]['Requirements']['Availability'] = check_req_avb(cfg.get('Project', 'req_avb'))
-            else:
-                links[name]['Requirements']['Availability'] = check_req_avb(sites_even[id][7])
-
-            if sites_even[id][8] == '':
-                links[name]['Requirements']['Exclude'] = check_req_exclude(cfg.get('Project', 'req_exclude'))
-            else:
-                links[name]['Requirements']['Exclude'] = check_req_exclude(sites_even[id][8])
+            raise ValueError(f'Site \'{sites_even[link_id][0]}\' must contain either 4 or 9 parameters.')
 
     return links
 
 
-def get_recommendations(link, table, cfg):
+def get_recommendations(link, table):
     """Select the best option for the requested throughput among all products.
     Return the most suitable device option.
     """
@@ -183,6 +193,8 @@ def get_recommendations(link, table, cfg):
         # Find relations between MCS and Throughput for the particular bandwidth and packs them to dev_modulations
         dev_cap = device['Capacity'].get(link_req_bw)
         if dev_cap is None:
+            logger.debug(f'Link \'From {link["Site A"]["Name"]} to {link["Site B"]["Name"]}\'. '
+                         f'{device["Model"]} doesn\'t support the requested bandwidth ({link_req_bw}).')
             continue
         dev_modulations = list(dev_cap.items())
         """
@@ -238,26 +250,26 @@ def get_recommendations(link, table, cfg):
         As a result, it is calculated how the final weight.
         """
         if device['Family'] == 'InfiLINK XG 1000':
-            weight_cost = int(cfg.get('Settings', 'weight_xg1000'))
-            weight_excl = int(cfg.get('Settings', 'weight_exclude')) if link_excl_xg1000 else 0
+            weight_cost = int(config.get('Settings', 'weight_xg1000'))
+            weight_excl = int(config.get('Settings', 'weight_exclude')) if link_excl_xg1000 else 0
         elif device['Family'] == 'InfiLINK XG 500':
-            weight_cost = int(cfg.get('Settings', 'weight_xg500'))
-            weight_excl = int(cfg.get('Settings', 'weight_exclude')) if link_excl_xg500 else 0
+            weight_cost = int(config.get('Settings', 'weight_xg500'))
+            weight_excl = int(config.get('Settings', 'weight_exclude')) if link_excl_xg500 else 0
         elif device['Family'] == 'Quanta 5' or device['Family'] == 'Quanta 6':
-            weight_cost = int(cfg.get('Settings', 'weight_quanta'))
-            weight_excl = int(cfg.get('Settings', 'weight_exclude')) if link_excl_quanta else 0
+            weight_cost = int(config.get('Settings', 'weight_quanta'))
+            weight_excl = int(config.get('Settings', 'weight_exclude')) if link_excl_quanta else 0
         elif device['Family'] == 'Quanta 70':
-            weight_cost = int(cfg.get('Settings', 'weight_quanta_70'))
-            weight_excl = int(cfg.get('Settings', 'weight_exclude')) if link_excl_quanta else 0
+            weight_cost = int(config.get('Settings', 'weight_quanta_70'))
+            weight_excl = int(config.get('Settings', 'weight_exclude')) if link_excl_quanta else 0
         elif device['Family'] == 'InfiLINK Evolution':
-            weight_cost = int(cfg.get('Settings', 'weight_e5000'))
-            weight_excl = int(cfg.get('Settings', 'weight_exclude')) if link_excl_e5000 else 0
+            weight_cost = int(config.get('Settings', 'weight_e5000'))
+            weight_excl = int(config.get('Settings', 'weight_exclude')) if link_excl_e5000 else 0
         elif device['Family'] == 'InfiLINK 2x2 PRO':
-            weight_cost = int(cfg.get('Settings', 'weight_r5000_lite'))
-            weight_excl = int(cfg.get('Settings', 'weight_exclude')) if link_excl_r5000_pro else 0
+            weight_cost = int(config.get('Settings', 'weight_r5000_lite'))
+            weight_excl = int(config.get('Settings', 'weight_exclude')) if link_excl_r5000_pro else 0
         elif device['Family'] == 'InfiLINK 2x2 LITE':
-            weight_cost = int(cfg.get('Settings', 'weight_xg1000'))
-            weight_excl = int(cfg.get('Settings', 'weight_exclude')) if link_excl_r5000_lite else 0
+            weight_cost = int(config.get('Settings', 'weight_xg1000'))
+            weight_excl = int(config.get('Settings', 'weight_exclude')) if link_excl_r5000_lite else 0
 
         if link_req_cap > dev_mcs_clst[1]:
             weight_cap = weight_cost * -1
@@ -267,6 +279,8 @@ def get_recommendations(link, table, cfg):
         if (link_dist - dev_mcs_dist) > 0:
             weight_cap = weight_cost * -1
             weight_dist = link_dist - dev_mcs_dist
+        #elif (link_dist - dev_mcs_dist) < 0 and weight_cap > 0:
+            #weight_dist = (link_dist - dev_mcs_dist) * -1
         else:
             weight_dist = (link_dist - dev_mcs_dist) * -1
 
@@ -274,10 +288,14 @@ def get_recommendations(link, table, cfg):
 
         candidates.append((weight, device['Name']))
 
+    if len(candidates) == 0:
+        raise ValueError(f'Link \'From {link["Site A"]["Name"]} to {link["Site B"]["Name"]}\'. '
+                         f'There is no suitable equipment. Please check the requirements.')
+
     return min(candidates)[1]
 
 
-def prepare_project(link, site_id, region):
+def prepare_project(link, site_id):
     """Prepare link for importing to a KMZ project.
     It must follow InfiPLANNER KML template.
     KML contains JSON with linksArray and sitesArray,
@@ -333,7 +351,7 @@ def prepare_project(link, site_id, region):
         equipment['Family'] = 'InfiLINK 2x2'
     if equipment['Family'] == 'InfiLINK XG 500':
         equipment['Family'] = 'InfiLINK XG'
-    if region == 'rus' and 'Quanta' in equipment['Family']:
+    if config.get('Settings', 'region') == 'rus' and 'Quanta' in equipment['Family']:
         equipment['Family'] = equipment['Family'].replace('Quanta', 'Vector')
         equipment['Model'] = equipment['Model'].replace('Q', 'V')
 
@@ -375,22 +393,22 @@ def prepare_project(link, site_id, region):
     return project_link
 
 
-def create_project(pr_name, pr_links, pr_sites, cfg):
+def create_project(pr_name, pr_links, pr_sites):
     """Create KMZ for InfiPLANNER and BOM."""
 
-    if cfg.get('Output', 'output_folder') == 'default':
+    if config.get('Output', 'output_folder') == 'default':
         if Path.is_dir(Path.cwd() / 'Output') is False:
             Path.mkdir(Path.cwd() / 'Output')
         output = Path.cwd() / 'Output'
     else:
-        if Path.is_dir(Path(cfg.get('Output', 'output_folder'))) is False:
-            Path.mkdir(Path(cfg.get('Output', 'output_folder')))
-        output = Path(cfg.get('Output', 'output_folder'))
+        if Path.is_dir(Path(config.get('Output', 'output_folder'))) is False:
+            Path.mkdir(Path(config.get('Output', 'output_folder')), parents=True, exist_ok=True)
+        output = Path(config.get('Output', 'output_folder'))
 
-    if cfg.get('Output', 'kmz_name') == 'default':
+    if config.get('Output', 'kmz_name') == 'default':
         kmz_name = f'{pr_name}'
     else:
-        kmz_name = cfg.get('Output', 'kmz_name')
+        kmz_name = config.get('Output', 'kmz_name')
     kmz_path = output / f'{kmz_name}.kmz'
     kmz_counter = 0
     while True:
@@ -400,10 +418,10 @@ def create_project(pr_name, pr_links, pr_sites, cfg):
         else:
             break
 
-    if cfg.get('Output', 'bom_name') == 'default':
+    if config.get('Output', 'bom_name') == 'default':
         bom_name = f'{pr_name}'
     else:
-        bom_name = cfg.get('Output', 'kmz_name')
+        bom_name = config.get('Output', 'kmz_name')
     bom_path = output / f'{bom_name}.txt'
     bom_counter = 0
     while True:
@@ -468,10 +486,6 @@ def create_project(pr_name, pr_links, pr_sites, cfg):
 def handle(input_file):
     """Waits for a CSV file and returns a KMZ project + a TXT bill of materials"""
 
-    config = ConfigParser(comment_prefixes='/', allow_no_value=True)
-    config_path = Path('config.ini')
-    config.read(config_path)
-
     if config.get('Database', 'db_path') == 'default':
         db_path = Path('devices.db')
     else:
@@ -482,7 +496,7 @@ def handle(input_file):
 
     # Parse the CSV file and create a links array for future needs
     file_csv = read_csv(input_file)
-    links = create_links(file_csv, config)
+    links = create_links(file_csv)
 
     project_name = Path(input_file).stem
     # linksArray
@@ -492,23 +506,67 @@ def handle(input_file):
     # site id
     project_counter = 400000
     for link_name, link in links.items():
-        link_freq = link['Requirements']['Frequency range']
-        table = db.table(link_freq)
-        link_rec = get_recommendations(link, table, config)
-        links[link_name]['Equipment'] = dict(table.search(equipment.Name == link_rec)[0])
-        # They won't be needed else
-        del links[link_name]['Equipment']['Capacity']
-        del links[link_name]['Equipment']['Availability']
-        # Prepare all information about the link for importing to InfiPLANNER
-        project_link = prepare_project(link, project_counter, config.get('Settings', 'region'))
-        project_counter += 2
-        project_links.append(project_link)
-        project_sites.append(project_link['startSite'])
-        project_sites.append(project_link['endSite'])
+        try:
+            link_freq = link['Requirements']['Frequency range']
+            table = db.table(link_freq)
+            link_rec = get_recommendations(link, table)
+            links[link_name]['Equipment'] = dict(table.search(equipment.Name == link_rec)[0])
+            # They won't be needed else
+            del links[link_name]['Equipment']['Capacity']
+            del links[link_name]['Equipment']['Availability']
+            # Prepare all information about the link for importing to InfiPLANNER
+            project_link = prepare_project(link, project_counter)
+            project_counter += 2
+            project_links.append(project_link)
+            project_sites.append(project_link['startSite'])
+            project_sites.append(project_link['endSite'])
+        except ValueError as error_msg:
+            logger.exception(f'{error_msg}', exc_info=False)
+        finally:
+            continue
     # Create KMZ + BOM
-    create_project(project_name, project_links, project_sites, config)
+    try:
+        if len(project_links) == 0:
+            raise ValueError(f'Something goes wrong. Please check the logs.')
+        else:
+            logger.info('Project has been successfully created.')
+            create_project(project_name, project_links, project_sites)
+    except ValueError as error_msg:
+        logger.exception(f'{error_msg}', exc_info=False)
 
+
+# Import config
+config = ConfigParser(comment_prefixes='/', allow_no_value=True)
+config_path = Path('config.ini')
+config.read(config_path)
+
+# Create logger
+logger = getLogger(__name__)
+logger.setLevel(level='DEBUG')
+
+# Create path and filenames
+log_path = Path.cwd() / 'Logs'
+if Path.is_dir(log_path) is False:
+    Path.mkdir(log_path)
+log = log_path / f'{datetime.today().strftime("%Y_%m_%d")}.log'
+
+# Create handlers
+console_handler = StreamHandler()
+file_handler = FileHandler(log)
+console_handler.setLevel(level='DEBUG')
+file_handler.setLevel(level='INFO')
+
+# Create formatter and add it to handlers
+form = '%(asctime)s - %(levelname)s - %(pathname)s - %(message)s'
+formatter = Formatter(fmt=form, datefmt='%d-%b-%y %H:%M:%S')
+console_handler.setFormatter(formatter)
+file_handler.setFormatter(formatter)
+
+# Add handlers to the logger
+logger.addHandler(console_handler)
+logger.addHandler(file_handler)
 
 if __name__ == '__main__':
+    # Work with files
     file_input = Path('example.csv')
     handle(file_input)

@@ -116,6 +116,10 @@ db_path:
 Points out where the database is stored
 default - /devices.db
 
+xls_path:
+Points out where the XLS file from which db gets values is stored
+default - /devices.xlsx
+
 1.4 Output partition
 
 output_folder:
