@@ -1,6 +1,7 @@
 from re import compile
 from openpyxl import load_workbook
 from tinydb import TinyDB
+from pathlib import Path
 
 
 def get_slices(sheet):
@@ -40,7 +41,7 @@ def get_slices(sheet):
         yield row_old_start, row_end
 
 
-def analyze_slice(start, end):
+def analyze_slice(start, end, sheet):
     capacity = {}
     availability = {'99.90': {}, '99.99': {}}
     for row in sheet.iter_rows(min_row=start, min_col=1, max_row=end, max_col=17):
@@ -80,12 +81,19 @@ def write_db(table, family, name, model, device_type, cable, capacity, availabil
     table.insert(result)
 
 
-if __name__ == "__main__":
-    db = TinyDB('devices.db')
+def update_database(file_db, file_xls):
+
+    db = TinyDB(file_db)
     db.drop_tables()
-    wb = load_workbook(filename='devices.xlsx')
+    wb = load_workbook(filename=file_xls)
     for sheet in wb:
         table = db.table(sheet.title)
         for slice in get_slices(sheet):
-            device = analyze_slice(*slice)
+            device = analyze_slice(*slice, sheet)
             write_db(table, *device)
+
+
+if __name__ == "__main__":
+    file_db = Path.cwd() / 'devices.db'
+    file_xls = Path.cwd() / 'devices.xlsx'
+    update_database(file_db, file_xls)
