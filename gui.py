@@ -7,8 +7,8 @@ from re import compile
 from tkinter import font as tkfont
 from tkinter import ttk
 
-from dbupdater import update_database
 from csvhandler import handle
+from dbupdater import update_database
 
 
 class Application(tk.Tk):
@@ -18,7 +18,6 @@ class Application(tk.Tk):
         tk.Tk.__init__(self, *args, **kwargs)
         self.geometry('450x460')
         self.title('InfiPLANNER project generator')
-        self.csv = ''
 
         self.container = tk.Frame(self)
 
@@ -34,7 +33,7 @@ class Application(tk.Tk):
 
         self.menu_file = tk.Menu(self.menu_main, tearoff=0)
         self.menu_file.add_command(label='Main page', command=lambda: self.show_frame('MainPage'))
-        self.menu_file.add_command(label='Exit', command=quit)
+        self.menu_file.add_command(label='Exit', command=self.destroy)
 
         self.menu_settings = tk.Menu(self.menu_main, tearoff=0)
         self.menu_settings.add_command(label='General', command=lambda: self.show_frame('SettingsPage'))
@@ -615,6 +614,6 @@ class AboutPage(tk.Frame):
         webbrowser.open_new(url)
 
 
-if __name__ == '__main__':
+if __name__=='__main__':
     app = Application()
     app.mainloop()
