@@ -2,5 +2,6 @@
 /.idea
 /Output
 /Logs
+/__pycache__
 test.py
 ~$devices.xlsx

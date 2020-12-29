@@ -1,13 +1,14 @@
 import tkinter as tk
-from tkinter import ttk
 import tkinter.filedialog as fd
-from tkinter import font as tkfont
-from pathlib import Path
 import webbrowser
 from configparser import ConfigParser
+from pathlib import Path
 from re import compile
+from tkinter import font as tkfont
+from tkinter import ttk
 
 from dbupdater import update_database
+from csvhandler import handle
 
 
 class Application(tk.Tk):
@@ -48,8 +49,6 @@ class Application(tk.Tk):
 
         self.gui()
 
-
-
     def gui(self):
         """Show GUI (Window)."""
 
@@ -61,55 +60,79 @@ class Application(tk.Tk):
 
     def show_frame(self, page_name):
         """Show a frame for the given page name"""
+
         frame = self.frames[page_name]
         frame.tkraise()
 
 
 class MainPage(tk.Frame):
-    """Blabla."""
+    """Main Page."""
 
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
         self.controller = controller
-        self.font_label = tkfont.Font(family='Arial', size=12, weight='bold')
-        self.font_other = tkfont.Font(family='Arial', size=10)
-        self.font_btn_path = tkfont.Font(family='Arial', size=3)
-        self.file_name = tk.StringVar()
-        self.message = tk.StringVar()
 
-        frame_empty_1 = tk.Frame(self)
-        frame_empty_2 = tk.Frame(self)
-        frame_empty_3 = tk.Frame(self)
+        self.font_lbl = tkfont.Font(family='Arial', size=12, weight='bold')
+        self.font_result = tkfont.Font(family='Arial', size=15, weight='bold')
+        self.font_btn = tkfont.Font(family='Arial', size=15, weight='bold')
 
-        label_inform = tk.Label(frame_empty_1, text='Please upload a CSV file and click Next to continue',
-                                height=5, font=self.font_label)
-        button_csv = tk.Button(frame_empty_2, text='Upload file', width=25,
-                               command=self.upload_file, font=self.font_other)
-        label_csv = tk.Label(frame_empty_2, textvariable=self.message, font=self.font_other)
-        button_next = tk.Button(frame_empty_3, text='Next', width=25, command=self.check_file, font=self.font_other)
+        self.var_csv_path = tk.StringVar()
 
-        label_inform.pack()
-        button_csv.pack(pady=10)
-        label_csv.pack()
-        button_next.pack(side='right', padx=10, pady=10)
-        frame_empty_1.pack()
-        frame_empty_2.pack(fill='x')
-        frame_empty_3.pack(side='bottom', fill='x')
+        self.frame = tk.Frame(self)
+
+        self.info_lbl = tk.Label(self, text='Please upload a CSV file and click Start to continue', font=self.font_lbl)
+        self.csv_upl_btn = tk.Button(self, text='Upload file', width=30, height=3,
+                                     command=self.upload_file, font=self.font_btn)
+        self.csv_path_txt = tk.Text(self, wrap='word', width=30, height=3, bg='Gray94', relief='flat')
+        self.csv_path_txt.config(state='disabled')
+        self.start_btn = tk.Button(self, text='Start', width=30, height=5,
+                                   command=self.generate_project, font=self.font_btn)
+        self.start_txt = tk.Text(self, wrap='word', width=30, height=3, bg='Gray94',
+                                 relief='flat', font=self.font_result)
+        self.start_txt.config(state='disabled')
+        self.gui()
+
+    def gui(self):
+        """Show GUI (Window)."""
+
+        self.info_lbl.pack(fill='x', padx=10, pady=10)
+        self.csv_upl_btn.pack(padx=10, pady=10)
+        self.csv_path_txt.pack(padx=10, pady=10)
+        self.start_txt.pack(padx=10, pady=10)
+        self.start_btn.pack(side='bottom', padx=30, pady=30)
+        self.frame.pack()
+
+        self.grid()
 
     def upload_file(self):
-        self.csv = fd.askopenfilename(defaultextension='.csv',
-                                      filetypes=(('CSV', '*.csv'), ('All files', '*.*')))
-        self.frames['StartPage'].update_file()
+        """Set path to the xlsx file."""
 
-    def update_file(self):
-        self.file_name.set(f'{self.controller.csv}')
-        self.message.set(f'{self.controller.csv}')
+        self.var_csv_path.set(fd.askopenfilename(defaultextension='.csv',
+                                                 filetypes=(('CSV', '*.csv'), ('All files', '*.*'))))
+        self.csv_path_txt.config(state='normal')
+        self.csv_path_txt.delete('0.0', 'end')
+        self.csv_path_txt.insert('0.0', f'{self.var_csv_path.get()}')
+        self.csv_path_txt.tag_add('center', '0.0', 'end')
+        self.csv_path_txt.tag_config('center', justify='center')
+        self.csv_path_txt.config(state='disabled')
 
-    def check_file(self):
-        if self.controller.csv == '':
-            self.message.set(f'ERROR: CSV file is not selected')
-        else:
-            self.controller.show_frame('PageOne')
+    def generate_project(self):
+        """Start csvhandler."""
+        try:
+            handle(Path(self.var_csv_path.get()))
+            self.start_txt.config(state='normal', fg='green')
+            self.start_txt.delete('0.0', 'end')
+            self.start_txt.insert('0.0', f'Project has been successfully generated')
+            self.start_txt.tag_add('center', '0.0', 'end')
+            self.start_txt.tag_config('center', justify='center')
+            self.start_txt.config(state='disabled')
+        except:
+            self.start_txt.config(state='normal', fg='red')
+            self.start_txt.delete('0.0', 'end')
+            self.start_txt.insert('0.0', f'Error')
+            self.start_txt.tag_add('center', '0.0', 'end')
+            self.start_txt.tag_config('center', justify='center')
+            self.start_txt.config(state='disabled')
 
 
 class SettingsPage(tk.Frame):
@@ -243,12 +266,12 @@ class SettingsPage(tk.Frame):
         self.set_db_lbl = tk.Label(self, text='Database settings', font=self.font_bold)
         self.set_db_fld_lbl = tk.Label(self, text='Database file')
         self.set_db_btn = tk.Button(self, text='Choose', command=self.choose_db_fld, width=12, height=1)
-        self.set_db_txt = tk.Text(self, wrap='word', width=25, height=3, bg='whitesmoke')
+        self.set_db_txt = tk.Text(self, wrap='word', width=25, height=3, bg='Gray94', relief='flat')
         self.set_db_txt.insert('0.0', f'{self.var_db_path.get()}')
         self.set_db_txt.config(state='disable')
         self.set_xls_fld_lbl = tk.Label(self, text='XLS file')
         self.set_xls_btn = tk.Button(self, text='Choose', command=self.choose_xls, width=12, height=1)
-        self.set_xls_txt = tk.Text(self, wrap='word', width=25, height=3, bg='whitesmoke')
+        self.set_xls_txt = tk.Text(self, wrap='word', width=25, height=3, bg='Gray94', relief='flat')
         self.set_xls_txt.insert('0.0', f'{self.var_xls_path.get()}')
         self.set_xls_txt.config(state='disable')
         self.set_db_upd_btn = tk.Button(self, text='Update database', command=self.update_db, width=16, height=1)
@@ -257,7 +280,7 @@ class SettingsPage(tk.Frame):
         self.set_out_lbl = tk.Label(self, text='Output settings', font=self.font_bold)
         self.set_out_fld_lbl = tk.Label(self, text='Output folder')
         self.set_out_btn = tk.Button(self, text='Set', command=self.choose_out_fld, width=12, height=1)
-        self.set_out_txt = tk.Text(self, wrap='word', width=25, height=3, bg='whitesmoke')
+        self.set_out_txt = tk.Text(self, wrap='word', width=25, height=3, bg='Gray94', relief='flat')
         self.set_out_txt.insert('1.0', f'{self.var_out_fld_path.get()}')
         self.set_out_txt.config(state='disable')
         self.set_out_kmz_lbl = tk.Label(self, text='KMZ name')
@@ -352,7 +375,7 @@ class SettingsPage(tk.Frame):
                                                                 ('JSON', '*.json'),
                                                                 ('All files', '*.*'))))
         self.set_db_txt.config(state='normal')
-        self.set_db_txt.delete('0.0', tk.END)
+        self.set_db_txt.delete('0.0', 'end')
         self.set_db_txt.insert('0.0', f'{self.var_db_path.get()}')
         self.set_db_txt.config(state='disabled')
         self.var_db_fld_chng.set(True)
@@ -362,7 +385,7 @@ class SettingsPage(tk.Frame):
 
         self.var_out_fld_path.set(fd.askdirectory())
         self.set_out_txt.config(state='normal')
-        self.set_out_txt.delete('0.0', tk.END)
+        self.set_out_txt.delete('0.0', 'end')
         self.set_out_txt.insert('0.0', f'{self.var_out_fld_path.get()}')
         self.set_out_txt.config(state='disabled')
         self.var_out_fld_chng.set(True)
@@ -375,7 +398,7 @@ class SettingsPage(tk.Frame):
                                                                 ('XLS', '*.xls'),
                                                                 ('All files', '*.*'))))
         self.set_xls_txt.config(state='normal')
-        self.set_xls_txt.delete('0.0', tk.END)
+        self.set_xls_txt.delete('0.0', 'end')
         self.set_xls_txt.insert('0.0', f'{self.var_xls_path.get()}')
         self.set_xls_txt.config(state='disabled')
         self.var_xls_chng.set(True)
@@ -526,6 +549,8 @@ class HelpPage(tk.Frame):
         self.var_readme_path = Path.cwd() / 'readme.txt'
         self.var_help_txt = tk.StringVar()
 
+        self.frame = tk.Frame(self)
+
         self.gui()
 
     def gui(self):
@@ -538,17 +563,14 @@ class HelpPage(tk.Frame):
             else:
                 raise
 
-            self.frame = tk.Frame(self)
             self.help_txt = tk.Text(self, wrap='word', font=self.font_help_txt)
             self.help_txt.insert('0.0', f'{self.var_help_txt}')
             self.help_txt.config(state='disable')
             self.help_scrl = tk.Scrollbar(self, command=self.help_txt.yview)
-
             self.help_scrl.pack(side='right', fill='y')
             self.help_txt.pack(side='top', expand='yes', fill='both', padx=1, pady=1)
             self.frame.pack()
         except:
-            self.frame = tk.Frame(self)
             self.help_err_lbl = tk.Label(self, text='Help file missing', fg='red', font=self.font_help_err)
             self.help_err_lbl.pack(anchor='center', fill='both', expand='yes')
             self.frame.pack()
@@ -564,7 +586,7 @@ class AboutPage(tk.Frame):
         self.font_info = tkfont.Font(family='Arial', size=12)
         self.font_other = tkfont.Font(family='Arial', size=10)
 
-        self.frame = tk.Frame()
+        self.frame = tk.Frame(self)
 
         # General information
         self.info_lbl = tk.Label(self, text='InfiPLANNER project generator v 1.0.0', font=self.font_info)
@@ -582,9 +604,9 @@ class AboutPage(tk.Frame):
     def gui(self):
         """Show GUI (AboutPage)."""
 
-        self.info_lbl.pack(side='top', fill='x', pady=10)
-        self.info_link_lbl.pack(side='top', fill='x', pady=10)
-        self.contacts_lbl.pack(side='bottom', fill='x', pady=10)
+        self.info_lbl.pack(side='top', fill='x')
+        self.info_link_lbl.pack(side='top', fill='x')
+        self.contacts_lbl.pack(side='bottom', fill='x')
         self.frame.pack()
 
         self.grid()
