@@ -265,10 +265,10 @@ def get_recommendations(link, table):
             weight_cost = int(config.get('Settings', 'weight_e5000'))
             weight_excl = int(config.get('Settings', 'weight_exclude')) if link_excl_e5000 else 0
         elif device['Family'] == 'InfiLINK 2x2 PRO':
-            weight_cost = int(config.get('Settings', 'weight_r5000_lite'))
+            weight_cost = int(config.get('Settings', 'weight_r5000_pro'))
             weight_excl = int(config.get('Settings', 'weight_exclude')) if link_excl_r5000_pro else 0
         elif device['Family'] == 'InfiLINK 2x2 LITE':
-            weight_cost = int(config.get('Settings', 'weight_xg1000'))
+            weight_cost = int(config.get('Settings', 'weight_r5000_lite'))
             weight_excl = int(config.get('Settings', 'weight_exclude')) if link_excl_r5000_lite else 0
 
         if link_req_cap > dev_mcs_clst[1]:
@@ -287,6 +287,9 @@ def get_recommendations(link, table):
         weight = weight_cap + weight_dist + weight_excl
 
         candidates.append((weight, device['Name']))
+
+    print(link)
+    print(candidates)
 
     if len(candidates) == 0:
         raise ValueError(f'Link \'From {link["Site A"]["Name"]} to {link["Site B"]["Name"]}\'. '
@@ -347,7 +350,7 @@ def prepare_project(link, site_id):
     project_site_a['antennaHeight'] = site_a['Height']
     project_site_b['antennaHeight'] = site_b['Height']
 
-    if equipment['Family'] == 'InfiLINK 2x2 PRO' or equipment['Family'] == 'InfiLINK 2x2 Lite':
+    if equipment['Family'] == 'InfiLINK 2x2 PRO' or equipment['Family'] == 'InfiLINK 2x2 LITE':
         equipment['Family'] = 'InfiLINK 2x2'
     if equipment['Family'] == 'InfiLINK XG 500':
         equipment['Family'] = 'InfiLINK XG'

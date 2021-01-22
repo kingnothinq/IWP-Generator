@@ -1,10 +1,12 @@
-from re import compile
 from openpyxl import load_workbook
-from tinydb import TinyDB
 from pathlib import Path
+from re import compile
+from tinydb import TinyDB
 
 
 def get_slices(sheet):
+    """Find devices in XLS."""
+
     row_start = 1
     while True:
         family_cell = sheet.cell(row=row_start, column=2)
@@ -18,7 +20,7 @@ def get_slices(sheet):
             row_end = row_start - 2
         elif family_cell.value == 'Quanta 70':
             row_old_start = row_start
-            row_start = row_start + 15
+            row_start = row_start + 9
             row_end = row_start - 2
         elif family_cell.value == 'InfiLINK XG 1000':
             row_old_start = row_start
@@ -36,12 +38,22 @@ def get_slices(sheet):
             row_old_start = row_start
             row_start = row_start + 18
             row_end = row_start - 2
+        elif family_cell.value == 'InfiLINK Evolution':
+            row_old_start = row_start
+            row_start = row_start + 21
+            row_end = row_start - 2
+        elif family_cell.value == 'Axion 28':
+            row_old_start = row_start
+            row_start = row_start + 9
+            row_end = row_start - 2
         elif family_cell.value is None:
             break
         yield row_old_start, row_end
 
 
 def analyze_slice(start, end, sheet):
+    """Parse data from XLS."""
+
     capacity = {}
     availability = {'99.90': {}, '99.99': {}}
     for row in sheet.iter_rows(min_row=start, min_col=1, max_row=end, max_col=17):
@@ -57,23 +69,28 @@ def analyze_slice(start, end, sheet):
         elif row_text[0] == 'Availability, 99.99%':
             availability['99.99'][row_text[1]] = {f'MCS{id}': float(item) for id, item in enumerate(row_text[2:])}
     pattern = compile(r'([\w\d\.\/\-]+)(\+(MARS|MA|GENERIC))?')
-    if ('-E' in name) or ('Um' in name) or ('Omx' in name) or ('Lmn' in name):
-        device_type = 'external'
+    if ('-E' in name) or ('Um' in name) or ('Omx' in name) or ('Lmn' in name) or ('STE' in name):
+        type = 'external'
         model = pattern.search(name).group(1)
+        antenna = pattern.search(name).group(2)
         cable = 'CAB-RF-1M'
     else:
-        device_type = 'internal'
+        type = 'internal'
         model = pattern.search(name).group(1)
+        antenna = None
         cable = None
 
-    return family, name, model, device_type, cable, capacity, availability
+    return family, name, model, type, antenna, cable, capacity, availability
 
 
-def write_db(table, family, name, model, device_type, cable, capacity, availability):
+def write_db(table, family, name, model, type, antenna, cable, capacity, availability):
+    """Insert data to the database."""
+
     result = {'Family': family,
               'Name': name,
               'Model': model,
-              'Type': device_type,
+              'Type': type,
+              'Antenna': antenna,
               'RF Cable': cable,
               'Capacity': capacity,
               'Availability': availability
@@ -82,6 +99,7 @@ def write_db(table, family, name, model, device_type, cable, capacity, availabil
 
 
 def update_database(file_db, file_xls):
+    """Write data to the database. From XLSX to JSON (*.DB)."""
 
     db = TinyDB(file_db)
     db.drop_tables()
