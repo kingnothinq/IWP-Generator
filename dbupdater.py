@@ -68,15 +68,14 @@ def analyze_slice(start, end, sheet):
             availability['99.90'][row_text[1]] = {f'MCS{id}': float(item) for id, item in enumerate(row_text[2:])}
         elif row_text[0] == 'Availability, 99.99%':
             availability['99.99'][row_text[1]] = {f'MCS{id}': float(item) for id, item in enumerate(row_text[2:])}
-    pattern = compile(r'([\w\d\.\/\-]+)(\+(MARS|MA|GENERIC))?')
     if ('-E' in name) or ('Um' in name) or ('Omx' in name) or ('Lmn' in name) or ('STE' in name):
         type = 'external'
-        model = pattern.search(name).group(1)
-        antenna = pattern.search(name).group(2)
+        model = name.split(' + ')[0]
+        antenna = name.split(' + ')[1]
         cable = 'CAB-RF-1M'
     else:
         type = 'internal'
-        model = pattern.search(name).group(1)
+        model = name
         antenna = None
         cable = None
 

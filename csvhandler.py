@@ -1,4 +1,4 @@
-from collections import Counter
+from collections import Counter, OrderedDict
 from configparser import ConfigParser
 from copy import deepcopy
 from csv import reader
@@ -288,8 +288,9 @@ def get_recommendations(link, table):
 
         candidates.append((weight, device['Name']))
 
-    print(link)
-    print(candidates)
+    print(link_req_cap)
+    #print(link)
+    #print(candidates)
 
     if len(candidates) == 0:
         raise ValueError(f'Link \'From {link["Site A"]["Name"]} to {link["Site B"]["Name"]}\'. '
@@ -470,19 +471,37 @@ def create_project(pr_name, pr_links, pr_sites):
     file_kml.unlink()
 
     # Prepare BOM
-    bom = []
+    bom_active = []
+    bom_passive = []
     for site in pr_sites:
-        bom.append(site['deviceProductKey'].replace('#', ' '))
+        bom_active.append(site['deviceProductKey'].replace('#', ' '))
+        bom_passive.append('AUX-ODU-LPU-L')
         if site['antennaPartNumber'] is not None:
-            bom.append(site['antennaPartNumber'])
+            bom_passive.append(site['antennaPartNumber'])
         if site['rfCablePartNumber'] is not None:
-            bom.append(site['antennaPartNumber'])
-    bom = Counter(bom)
+            bom_passive.append(site['rfCablePartNumber'])
+            bom_passive.append(site['rfCablePartNumber'])
+    bom_active = Counter(bom_active)
+    bom_active = OrderedDict(sorted(bom_active.items()))
+    bom_passive = Counter(bom_passive)
+    bom_passive = OrderedDict(sorted(bom_passive.items()))
+    bom_passive.move_to_end('AUX-ODU-LPU-L')
 
     with open(bom_path, 'w') as bom_text:
         text = []
-        for partnumber, counter in bom.items():
+        text.append(f'ACTIVE EQUIPMENT\n')
+        for partnumber, counter in bom_active.items():
             text.append(f'InfiNet {partnumber}:  {counter} pc.')
+        text.append(f'\nPASSIVE EQUIPMENT\n')
+        for partnumber, counter in bom_passive.items():
+            if partnumber != 'AUX-ODU-LPU-L':
+                text.append(f'InfiNet {partnumber}:  {counter} pc.')
+            else:
+                text.append(f'AC power\n'
+                            f'InfiNet {partnumber}:  {counter * 2} pc.'
+                            f'\nDC power (optional)\n'
+                            f'InfiNet {partnumber}:  {counter} pc.\n'
+                            f'InfiNet AUX-ODU-INJ-G:  {counter} pc.')
         bom_text.write('\n'.join(text))
 
 
